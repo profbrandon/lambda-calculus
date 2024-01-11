@@ -1,0 +1,61 @@
+
+
+define id          x := x
+define compose g f x := g (f x)
+define const     a x := a
+
+
+
+define true      a b := a
+define false     a b := b
+define recB    b x y := b x y
+define if            := recB
+define not     x a b := x b a
+define or      x y := x true y
+define and     x y := x y false
+define xor     x y := x (not y) y
+define implies x y := x y true
+
+
+
+define zero   f x := x
+define succ n f x := f (n f x)
+define recN x f n := n f x
+define plus   n m := recN m succ n
+define mult   n m := recN zero (plus n) m
+define iszero     := recN true (\u. false)
+define pred     n := \f x. recN (\u. x) (\g h. h (g f)) n id
+define one   := succ zero
+define two   := succ one
+define three := succ two
+define four  := succ three
+
+
+
+define pair  a b := \s. s a b
+define fst     p := p true
+define snd     p := p false
+define swap    p := pair (snd p) (fst p)
+define apFst f p := pair (f (fst p)) (snd p)
+define apSnd f p := pair (fst p) (f (snd p))
+define ap  f g p := pair (f (fst p)) (g (snd p))
+
+
+
+define empty       := pair true id
+define isempty   l := fst l
+define cons   a as := pair false (pair a as)
+define head        := compose fst snd
+define tail        := compose snd snd
+define recL  x f l := isempty l x (f (head l) (tail l))
+define singleton a := cons a empty
+
+
+
+define fib  n := fst (recN (pair zero one) (\p. apSnd (plus (snd p)) (swap p)) n)
+define fact n := fst (recN (pair one one) (\p. ap (mult (snd p)) succ p) n)
+
+define listNat n  := recN (singleton zero) (\l. cons (succ (head l)) l) n
+
+
+
