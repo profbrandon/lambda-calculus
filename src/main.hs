@@ -87,6 +87,9 @@ main = do
                \\t:unbind\t\tremoves all bound names\n \
                \\t:exit\t\texits the interactive\n \
                \\t:help\t\tdisplays this menu\n \
+               \\t:interpret <fn>\tinterprets a file into the current\n \
+               \\t               \tenvironment. does not work if the\n \
+               \\t               \tstatements span multiple lines.\n \
                \\t:load <fn>\tloads a file into the interpreter\n \
                \\n \
                \Statements\n \
