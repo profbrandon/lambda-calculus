@@ -90,14 +90,14 @@ attempt a p f = Parser $
 
 
 
-whitespace :: Parser String
-whitespace = repeat $ sat $ \c -> c `elem` " \n\t"
-
 lineComment :: Parser ()
 lineComment = string "--" >> repeat (do {c <- item; guard (c /= '\n')}) >> char '\n' >> return ()
 
+whitespace :: Parser String
+whitespace = repeat $ do {lineComment; return '\n'} <|> (sat $ \c -> c `elem` " \n\t\r")
+
 identifier :: Parser String
-identifier = (:) <$> sat isLower <*> repeat (sat isAlphaNum <|> char '\'')
+identifier = repeat1 (sat isAlphaNum <|> char '\'' <|> char '_')
 
 token :: Parser a -> Parser a
 token p = do {v <- p; whitespace; return v}
@@ -142,7 +142,7 @@ statement b ctx = typed <|> untyped <|> eval <|> typeOf <|> define
           args <-     fmap (\ss -> map (\s -> (s, Nothing)) ss) (guard (not b) >> repeat (token $ identifier))
                   <|> (guard b >> (repeat $ parens $ do {v <- token identifier; token $ string ":"; t <- token ttype; return (v, Just t)}))
           token $ string ":="
-          e <- term b $ (reverse $ fst $ unzip args) ++ name : ctx
+          e <- term b $ (reverse $ fst $ unzip args) ++ "" : ctx
           return $ Define name args e
 
 
@@ -151,7 +151,7 @@ statements = Parser $
   \s ->
     let state s = do {
         (b, ctx) <- get;
-        case parse (statement b ctx) s of
+        case parse (whitespace >> statement b ctx) s of
           Just (s', result) -> do
             case result of
               TBlock       -> put (True,  [])

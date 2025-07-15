@@ -1,0 +1,13 @@
+
+(# TYPED #)
+
+define id (x : a) := x
+define const (k : c) (x : a) := k
+
+define retCont  (x : a) := \r : a -> b. r x
+
+define joinCont (k : (((a -> b) -> b) -> b) -> b) := \f : a -> b. k (\h : (a -> b) -> b. h f)
+
+define mapCont  (f : a -> x) := \k : (a -> b) -> b. \g : x -> b. k (\x : a. g (f x))
+
+define bindCont (k : (a -> b) -> b) (f : a -> (x -> b) -> b) := joinCont (mapCont f k)

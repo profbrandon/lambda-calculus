@@ -1,7 +1,7 @@
 
 import Interpreter (interpret)
 import State (State(..), get, put)
-import Parser (Parser(..), statement)
+import Parser (Parser(..), statement, statements)
 
 import System.Console.ANSI (clearScreen, setCursorPosition)
 import System.IO (hFlush, stdout)
@@ -55,7 +55,7 @@ main = do
       loop (b, env)
     parseCommand (b, env) s        = do
       case words s of
-        ["load", filename] -> do
+        ["interpret", filename] -> do
           contents <- lines <$> readFile filename
           putStrLn $ "Loading '" ++ filename ++ "'"
           let consumeFile (b, env) []     = loop (b, env)
@@ -65,6 +65,17 @@ main = do
                 putStrLn output
                 consumeFile (b', env') ls
           consumeFile (b, env) contents
+        
+        ["load", filename] -> do
+          contents <- readFile filename
+          case parse statements contents of
+            Nothing       -> putStrLn $ "Failed to parse file '" ++ filename ++ "'"
+            Just ([], js) -> do 
+              let (output, (b', env')) = run (mapM interpret js) (b, env)
+              mapM putStrLn output
+              loop (b', env')
+            Just (s, _)   -> putStrLn $ "Error: Parse failed at '" ++ take 10 s ++ "...'"
+
         _                  -> do
           putStrLn $ "Error: Unrecognized command '" ++ s ++ "'"
           loop (b, env)
