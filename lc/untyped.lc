@@ -7,6 +7,10 @@ define id          x := x
 define compose g f x := g (f x)
 define const     a x := a
 
+define let e f := f e
+
+define $ := compose
+
 define combY := \f. (\x. f (x x)) (\x. f (x x))
 define combZ := \f. (\x. f (\v. x x v)) (\x. f (\v. x x v))
 
@@ -107,25 +111,42 @@ define 7 := succ 6
 define 8 := succ 7
 define 9 := succ 8
 
-define plus n m := recN m succ n
-define mult n m := recN 0 (plus m) n
-define exp  n m := recN 1 (mult n) m
+define + n m := recN m succ n
+define * n m := recN 0 (+ m) n
+define ^ n m := recN 1 (* n) m
 
-define fib  n := fst (recN (pair 0 1) (\p. apSnd (plus (snd p)) (swap p)) n)
-define fact n := fst (recN (pair 1 1) (\p. ap (mult (snd p)) succ p) n)
-define tri  n := genRecN 0 (\k l. plus (succ k) l) n
+define eqN n m := 
+    if (isZero n) 
+        (isZero m)
+        (if (isZero m)
+            false
+            (recS
+                (\k. false)
+                (\b. b)
+                (recN
+                    (left m)
+                    (\s. case s
+                            (\k. let (pred k) (\k'. if (isZero k') (right true) (left k')))
+                            (\b. right false))
+                    n)))
+
+define fib  n := fst (recN (pair 0 1) (\p. apSnd (+ (snd p)) (swap p)) n)
+define fact n := fst (recN (pair 1 1) (\p. ap (* (snd p)) succ p) n)
+define tri  n := genRecN 0 (\k l. + (succ k) l) n
 
 define div2 n := recN (\b. 0) (\f b. if b (succ (f (not b))) (f (not b))) n false
 
-define showNatBin digits n := \0 1 bin. snd (recN (pair n (if (isEven n) 0 1 bin)) (\p. recP (\k v. (\h. pair h (if (isEven h) (0 v) (1 v))) (div2 k)) p) digits)
-
-define showNatBin' digits n := 
+define showNatBin digits n := 
     \0 1 bin. snd 
         (recN
-            (pair n (if (isEven n) (\s. s 0) (\s. s 1))) 
+            (pair n (if (isEven n) 
+                        (\s. s 0) 
+                        (\s. s 1))) 
             (\p. recP 
                 (\k v. 
-                    (\h. pair h (if (isEven h) (\s. v (\a. s 0 a)) (\s. v (\a. s 1 a))))
+                    (\h. pair h (if (isEven h) 
+                                    (\s. v (\a. s 0 a))
+                                    (\s. v (\a. s 1 a))))
                     (div2 k))
                 p)
             (pred digits))
@@ -143,6 +164,10 @@ define cons a l := \g e. g a (l g e)
 
 define singleton a := cons a empty
 
+define [] := empty
+define @  := cons
+define {} := singleton
+
 define recL  e g l := l g e
 define foldr e g l := l g e
 
@@ -156,6 +181,8 @@ define map    f   := recL empty (\a bs. cons (f a) bs)
 define concat u v := recL v cons u
 define join   ls  := recL empty concat ls
 
+define ++ := concat
+
 define prepend x l := concat l (singleton x)
 
 define listNatAsc n := recN (singleton 0) (\xs. cons 0 (map succ xs)) n
@@ -163,6 +190,14 @@ define listNatDsc n := recN (singleton 0) (\xs. cons (succ (head xs)) xs) n
 
 define listNatAscBad n := genRecN (singleton n) (\k l. cons (pred (head l)) l) n
 define listNatDscBad n := genRecN (singleton 0) (\k l. cons (succ k) l) n
+
+define showList l := 
+    \[ , ] list.
+        (recL 
+            (\s. s ])
+            (\a f s. f (s , a))
+            l)
+        (\s. [)
 
 
 
@@ -177,6 +212,7 @@ define consA a l := right (pair a l)
 define headA l := case l (\u. emptyA) fst
 define tailA l := case l (\u. emptyA) snd
 
+-- Is this derivable for a general algebraic type?
 define recAL_kappa := \a l u g. u a (g l u g) u g
 define recAL_eta   := \x l u g. case l (\z. x) (\z. z recAL_kappa u g)
 define recAL x f l := recAL_eta x l (\a l u g. f a l) (recAL_eta x)
@@ -188,4 +224,25 @@ define isEmptyA l := recAL true (\a b. false) l
 define headA    l := recAL unit (\a xs. a) l
 define tailA    l := snd (recAL (pair id emptyA) (\a p. pair (consA a) (recP (\f l. f l) p)) l)
 
-define sumA l := recAL 0 plus l 
+
+
+
+---------------------------------------------------------------------------------------------------
+-- Vectors                                                                                       --
+---------------------------------------------------------------------------------------------------
+
+-- vector constructor, takes n arguments
+define vector n := recN (\g s. g (s n)) (\f g e. f (\x. g (x e))) n id
+
+define extend v e := \s. v (\k. s (succ k) e)
+
+define size v := v (\k. if (isZero k) 0 (recN (\x. k) (\f x. f) (pred k)))
+
+define coord i v := 
+    let (recP
+            (\rest f. recN f (\g _. g) rest)
+            (recN 
+                (pair (size v) (\a. a)) 
+                (\p. recP (\sz f. pair (pred sz) (\a _. f a)) p) (pred i)))
+    \accessor.
+        v accessor

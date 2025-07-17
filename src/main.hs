@@ -69,12 +69,18 @@ main = do
         ["load", filename] -> do
           contents <- readFile filename
           case parse statements contents of
-            Nothing       -> putStrLn $ "Failed to parse file '" ++ filename ++ "'"
+            Nothing       -> do
+              putStrLn $ "Failed to parse file '" ++ filename ++ "'"
+              loop (b, env)
+            
             Just ([], js) -> do 
               let (output, (b', env')) = run (mapM interpret js) (b, env)
               mapM putStrLn output
               loop (b', env')
-            Just (s, _)   -> putStrLn $ "Error: Parse failed at '" ++ take 10 s ++ "...'"
+
+            Just (s, _)   -> do
+              putStrLn $ "Error: Parse failed at '" ++ take 10 s ++ "...'"
+              loop (b, env)
 
         _                  -> do
           putStrLn $ "Error: Unrecognized command '" ++ s ++ "'"

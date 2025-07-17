@@ -97,7 +97,7 @@ whitespace :: Parser String
 whitespace = repeat $ do {lineComment; return '\n'} <|> (sat $ \c -> c `elem` " \n\t\r")
 
 identifier :: Parser String
-identifier = repeat1 (sat isAlphaNum <|> char '\'' <|> char '_')
+identifier = repeat1 (sat $ \c -> not $ c `elem` "\\.:() \n\t\r")
 
 token :: Parser a -> Parser a
 token p = do {v <- p; whitespace; return v}
