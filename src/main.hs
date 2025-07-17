@@ -18,73 +18,73 @@ main = do
   putStrLn "==================================="
   putStrLn ""
   putStrLn helpMenu
-  loop (False, [])
+  loop []
   where
-    loop (b, env) = do
+    loop env = do
       putStr "lambda-calc> "
       hFlush stdout
       s <- getLine
       case s of
-        ""       -> loop (b, env)
+        ""       -> loop env
         (':':cs) -> do 
-          parseCommand (b, env) cs
+          parseCommand env cs
         _        -> do
-          let (output, (b', env')) = run (convert s) (b, env)
+          let (output, env') = run (convert s) env
           putStrLn output
-          loop (b', env')
+          loop env'
 
     convert s = do
-      (b, env) <- get
-      let ctx = map (\(x,_,_) -> x) env
-      case parse (statement b ctx) s of
+      env <- get
+      let ctx = map (\(x,_) -> x) env
+      case parse (statement ctx) s of
         Nothing      -> return $ "Error: Parse failed on '" ++ s ++ "'"
         Just ([], j) -> interpret j
         Just (s, _) -> return $ "Error: Parse failed at '" ++ take 10 s ++ "...'"
 
-    parseCommand (b, env) "clear"  = do
+    parseCommand env "clear"  = do
       clearScreen
       setCursorPosition 0 0
-      loop (b, env)
-    parseCommand (b, env) "bound"  = do
-      traverse putStrLn (map (\(x,_,_) -> x) (reverse env))
-      loop (b, env)
-    parseCommand (b, env) "unbind" = loop (b, [])
-    parseCommand (b, env) "exit"   = return ()
-    parseCommand (b, env) "help"   = do
+      loop env
+    parseCommand env "bound"  = do
+      traverse putStrLn (map (\(x,_) -> x) (reverse env))
+      loop env
+    parseCommand env "unbind" = loop []
+    parseCommand env "exit"   = return ()
+    parseCommand env "help"   = do
       putStr helpMenu
-      loop (b, env)
-    parseCommand (b, env) s        = do
+      loop env
+    parseCommand env s        = do
       case words s of
         ["interpret", filename] -> do
           contents <- lines <$> readFile filename
           putStrLn $ "Loading '" ++ filename ++ "'"
-          let consumeFile (b, env) []     = loop (b, env)
-              consumeFile (b, env) ("":ls) = consumeFile (b, env) ls
-              consumeFile (b, env) (l:ls) = do
-                let (output, (b', env')) = run (convert l) (b, env)
+          let consumeFile env []     = loop env
+              consumeFile env ("":ls) = consumeFile env ls
+              consumeFile env (l:ls) = do
+                let (output, env') = run (convert l) env
                 putStrLn output
-                consumeFile (b', env') ls
-          consumeFile (b, env) contents
+                consumeFile env' ls
+          consumeFile env contents
         
         ["load", filename] -> do
           contents <- readFile filename
-          case parse (statements b (map (\(x,_,_) -> x) env)) contents of
+          case parse (statements (map (\(x,_) -> x) env)) contents of
             Nothing       -> do
               putStrLn $ "Failed to parse file '" ++ filename ++ "'"
-              loop (b, env)
+              loop env
             
             Just ([], js) -> do 
-              let (output, (b', env')) = run (mapM interpret js) (b, env)
+              let (output, env') = run (mapM interpret js) env
               mapM putStrLn output
-              loop (b', env')
+              loop env'
 
             Just (s, _)   -> do
               putStrLn $ "Error: Parse failed at '" ++ take 10 s ++ "...'"
-              loop (b, env)
+              loop env
 
         _                  -> do
           putStrLn $ "Error: Unrecognized command '" ++ s ++ "'"
-          loop (b, env)
+          loop env
         
 
     helpMenu = "Console Commands\n \
@@ -99,8 +99,5 @@ main = do
                \\t:load <fn>\tloads a file into the interpreter\n \
                \\n \
                \Statements\n \
-               \\t(# UNTYPED #)\n \
-               \\t(# TYPED #)\n \
                \\tdefine <identifier> := <term>\n \
-               \\ttypeof <term>\n \
                \\teval   <term>\n"

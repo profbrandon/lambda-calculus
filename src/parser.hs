@@ -15,7 +15,7 @@ import Data.Char (isLower, isAlphaNum)
 import Data.List (elemIndex)
 import Data.Tuple (swap)
 
-import Lambda (Term(..), Type(..))
+import Lambda (Term(..))
 import Statements (Statement(..))
 import State (State(..), get, put)
 
@@ -108,60 +108,47 @@ begin p = whitespace >> p
 index :: [String] -> Parser String -> Parser Int
 index ctx p = do {str <- p; case elemIndex str ctx of Nothing -> mzero; Just i -> return i}
 
-term0 :: Bool -> [String] -> Parser Term
-term0 typed ctx = var <|> lambda <|> token (parens $ term typed ctx)
+term0 :: [String] -> Parser Term
+term0 ctx = var <|> lambda <|> token (parens $ term ctx)
   where var    = Var <$> index ctx (token identifier) 
         lambda = do
             vs <- token (char '\\') >> repeat1 (token identifier)
-            t  <-     (Just <$> (guard typed *> token (char ':') *> ttype)) 
-                  <|> (guard (not typed) >> return Nothing)
-            e  <- token (char '.') >> term typed (reverse vs ++ ctx)
-            return $ Lambda vs t e
+            e  <- token (char '.') >> term (reverse vs ++ ctx)
+            return $ Lambda vs e
 
-term :: Bool -> [String] -> Parser Term
-term typed ctx = do
-  x <- term0 typed ctx
-  attemptRecurse x (term0 typed ctx) App
-
-ttype :: Parser Type
-ttype = do 
-  x <- (TVar <$> token identifier) <|> parens ttype
-  attempt x (token (string "->") >> ttype) Arrow
+term :: [String] -> Parser Term
+term ctx = do
+  x <- term0 ctx
+  attemptRecurse x (term0 ctx) App
 
 
-
-statement :: Bool -> [String] -> Parser Statement
-statement b ctx = typed <|> untyped <|> eval <|> typeOf <|> define
-  where typed   = between (token $ string "(#") (token $ string "#)") (token $ string "TYPED") >> return TBlock
-        untyped = between (token $ string "(#") (token $ string "#)") (token $ string "UNTYPED") >> return UTBlock
-        eval    = Eval <$> ((token $ string "eval") >> term b ctx)
-        typeOf  = TypeOf <$> ((token $ string "typeof") >> term b ctx)
+statement :: [String] -> Parser Statement
+statement ctx = eval <|> define
+      where
+        eval    = Eval <$> ((token $ string "eval") >> term ctx)
         define  = do
           token $ string "define"
           name <- token identifier
-          args <-     fmap (\ss -> map (\s -> (s, Nothing)) ss) (guard (not b) >> repeat (token $ identifier))
-                  <|> (guard b >> (repeat $ parens $ do {v <- token identifier; token $ string ":"; t <- token ttype; return (v, Just t)}))
+          args <- repeat $ token $ identifier
           token $ string ":="
-          e <- term b $ (reverse $ fst $ unzip args) ++ "" : ctx
+          e <- term $ (reverse args) ++ "" : ctx
           return $ Define name args e
 
 
-statements :: Bool -> [String] -> Parser [Statement]
-statements b ctx = Parser $ 
+statements :: [String] -> Parser [Statement]
+statements ctx = Parser $ 
   \s ->
     let state s = do {
-        (b, ctx) <- get;
-        case parse (whitespace >> statement b ctx) s of
+        ctx <- get;
+        case parse (whitespace >> statement ctx) s of
           Just (s', result) -> do
             case result of
-              TBlock       -> put (True,  [])
-              UTBlock      -> put (False, [])
-              Define n _ _ -> put (b,     n:ctx)
+              Define n _ _ -> put (n:ctx)
               _            -> return ()
             (xs, s'') <- state s'
             return (result : xs, s'')
           Nothing -> return ([], s)
     } 
 
-    in Just $ swap $ fst $ run (state s) (b, ctx)
+    in Just $ swap $ fst $ run (state s) ctx
           
