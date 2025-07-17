@@ -6,7 +6,7 @@ module Interpreter
 where
 
 import Typing (typeof, subT)
-import Eval (evalCtx, shift)
+import Eval (eval, evalCtx)
 import Statements (Statement(..))
 import State (State(..), get, put)
 import Lambda (Term(..), Type(..), buildLambda, showTerm, showType, showDeBruijn)
@@ -22,13 +22,15 @@ type Env = (Bool, [(String, Term, Maybe Type)])
 interpret :: Statement -> State Env String 
 interpret s = do
   (typed, bindings) <- get
+  let ctx = map (\(x,y,_) -> (x,y)) bindings
   let ts = if typed then map (\(_,_,Just z) -> z) bindings else []
   case s of
     TBlock  -> do {put (True, []); return ""}
     UTBlock -> do {put (False, []); return ""}
 
     Define name vars e -> do
-      let l = if null vars then e else buildLambda vars e
+      -- insert dummy binding
+      let l = evalCtx (("", e):ctx) $ if null vars then e else buildLambda vars e
       if not typed then do
         put (typed, (name,l,Nothing) : bindings)
         return $ "'" ++ name ++ "' defined"

@@ -16,6 +16,7 @@ define combZ := \f. (\x. f (\v. x x v)) (\x. f (\v. x x v))
 
 
 
+
 ---------------------------------------------------------------------------------------------------
 -- Unit Type                                                                                     --
 ---------------------------------------------------------------------------------------------------
@@ -23,6 +24,8 @@ define combZ := \f. (\x. f (\v. x x v)) (\x. f (\v. x x v))
 define unit     := \u. u
 
 define recU a u := u a
+
+define matchU u f := f u
 
 
 
@@ -36,12 +39,16 @@ define false a b := b
 
 define recB x y b := b x y
 
+define matchB b t f := recB (t true) (f false) b
+
 define if      b t f := recB t f b
 define not     x a b := x b a
 define or      x y := x true y
 define and     x y := x y false
 define xor     x y := x (not y) y
 define implies x y := x y true
+
+define showBool b := \true false bool. if b true false
 
 
 
@@ -54,12 +61,17 @@ define pair  a b := \s. s a b
 
 define fst    p := p true
 define snd    p := p false
+
 define recP f p := f (fst p) (snd p)
+
+define matchP p f := recP (\a b. f unit a unit b unit) p
 
 define swap    p := pair (snd p) (fst p)
 define apFst f p := pair (f (fst p)) (snd p)
 define apSnd f p := pair (fst p) (f (snd p))
-define ap  f g p := recP (\a b. pair (f a) (g b)) p
+define ap  f g p := matchP p (\{ a , b }. pair (f a) (g b))
+
+define showPair p := \{ , } pair. { (fst p) , (snd p) }
 
 
 
@@ -73,9 +85,17 @@ define right b := pair false b
 
 define recS f g s := recP (\z v. if z (f v) (g v)) s
 
+define matchS s l r := recS (l unit) (r unit) s
+
 define case    s f g := recS f g s
 define isLeft  s     := case s (\z. true) (\z. false)
 define isRight s     := case s (\z. false) (\z. true)
+
+define showSum s := 
+    \left right sum. 
+        matchS s 
+            (\left!  a. left a) 
+            (\right! b. right b)
 
 
 
@@ -84,20 +104,22 @@ define isRight s     := case s (\z. false) (\z. true)
 -- Natural Numbers                                                                               --
 ---------------------------------------------------------------------------------------------------
 
-define 0      := \f x. x
-define succ n := \f x. f (n f x)
+define 0      := \x f. x
+define succ n := \x f. f (n x f)
 
-define recN x f n := n f x
+define recN x f n := n x f
 
 -- general recursion : c -> (n -> c -> c) -> n -> c
-define genRecN c g n := snd (recN (pair 0 c) (\p. recP (\k v. pair (succ k) (g k v)) p) n)
+define genRecN c g n := recN (\k. c) (\s k. g k (s (succ k))) n 0
+
+define matchN n x f := genRecN (x unit) (f unit) n
 
 define isZero := recN true (\u. false)
 define isEven := recN true not
 define isOdd  := recN false not
 
-define pred  n := \f x. recN (\u. x) (\g h. h (g f)) n id
-define pred2 n := \f x. snd (recN (left x) (\s. case s (\z. right z) (\z. right (f z))) n)
+define pred  n := \x f. recN (\u. x) (\g h. h (g f)) n id
+define pred2 n := \x f. snd (recN (left x) (\s. case s (\z. right z) (\z. right (f z))) n)
 
 define iterate f n s := recN s f n
 
@@ -111,7 +133,19 @@ define 7 := succ 6
 define 8 := succ 7
 define 9 := succ 8
 
+define zero  := 0
+define one   := 1
+define two   := 2
+define three := 3
+define four  := 4
+define five  := 5
+define six   := 6
+define seven := 7
+define eight := 8
+define nine  := 9
+
 define + n m := recN m succ n
+define - n m := recN n pred m
 define * n m := recN 0 (+ m) n
 define ^ n m := recN 1 (* n) m
 
@@ -126,15 +160,23 @@ define eqN n m :=
                 (recN
                     (left m)
                     (\s. case s
-                            (\k. let (pred k) (\k'. if (isZero k') (right true) (left k')))
-                            (\b. right false))
+                        (\k. let (pred k) (\k'. if (isZero k') (right true) 
+                                    (left k')))
+
+                        (\b. right false))
                     n)))
 
 define fib  n := fst (recN (pair 0 1) (\p. apSnd (+ (snd p)) (swap p)) n)
 define fact n := fst (recN (pair 1 1) (\p. ap (* (snd p)) succ p) n)
 define tri  n := genRecN 0 (\k l. + (succ k) l) n
 
-define div2 n := recN (\b. 0) (\f b. if b (succ (f (not b))) (f (not b))) n false
+define div2 n   := recN (\b. 0) (\f b. if b (succ (f (not b))) (f (not b))) n false
+
+define / n m := 
+    let (pred m) \m'. 
+    recN (\k. 0) (\f k. if (isZero k) (succ (f m')) (f (pred k))) n m'
+
+define div := /
 
 define showNatBin digits n := 
     \0 1 bin. snd 
@@ -163,6 +205,13 @@ define empty    := \g e. e
 define cons a l := \g e. g a (l g e)
 
 define singleton a := cons a empty
+
+define list n := 
+    (recN 
+        (\s. s (\l. l)) 
+        (\f s. f (\g c. s (\l. g (cons c l)))) 
+        n) 
+    (\f. f empty)
 
 define [] := empty
 define @  := cons
@@ -193,11 +242,13 @@ define listNatDscBad n := genRecN (singleton 0) (\k l. cons (succ k) l) n
 
 define showList l := 
     \[ , ] list.
-        (recL 
-            (\s. s ])
-            (\a f s. f (s , a))
-            l)
-        (\s. [)
+        if (isEmpty l) 
+            ([ ])
+            ((recL 
+                (\s. s ])
+                (\a f s. f (s , a))
+                l)
+            (\s. [))
 
 
 
@@ -224,6 +275,8 @@ define isEmptyA l := recAL true (\a b. false) l
 define headA    l := recAL unit (\a xs. a) l
 define tailA    l := snd (recAL (pair id emptyA) (\a p. pair (consA a) (recP (\f l. f l) p)) l)
 
+define showAlgList al := showList (algListToList al)
+
 
 
 
@@ -236,13 +289,63 @@ define vector n := recN (\g s. g (s n)) (\f g e. f (\x. g (x e))) n id
 
 define extend v e := \s. v (\k. s (succ k) e)
 
-define size v := v (\k. if (isZero k) 0 (recN (\x. k) (\f x. f) (pred k)))
+define dim v := v (\k. if (isZero k) 0 (recN (\x. k) (\f x. f) (pred k)))
 
 define coord i v := 
     let (recP
             (\rest f. recN f (\g _. g) rest)
             (recN 
-                (pair (size v) (\a. a)) 
+                (pair (dim v) (\a. a)) 
                 (\p. recP (\sz f. pair (pred sz) (\a _. f a)) p) (pred i)))
     \accessor.
         v accessor
+
+define mapV f v :=
+    recN
+        (\g s. v (\n. g (s n)))
+        (\h g s. h (\k x. g (k (f x))) s)
+        (dim v)
+    id
+
+
+define showVector v :=
+    \< , > vector. 
+        if (isZero (dim v))
+            (< >)
+            ((recL 
+                (\s. s >) 
+                (\a f s. f (s , a)) 
+                (map (\i. coord i v) (tail (listNatAsc (dim v))))) 
+            (\s. <))
+
+
+
+
+---------------------------------------------------------------------------------------------------
+-- Trees                                                                                         --
+---------------------------------------------------------------------------------------------------
+
+define leaf   a   := \f g. f a
+define branch b l := \f g. g b (map (\t. t f g) l)
+
+define recT f g t := t f g
+
+define showTree t :=
+    \[ , ] list leaf branch.
+        recT (\a. leaf a) (\b l. branch b (showList l [ , ] list)) t
+
+
+
+
+---------------------------------------------------------------------------------------------------
+-- BTrees                                                                                        --
+---------------------------------------------------------------------------------------------------
+
+define leafB   a       := \f g. f a
+define branchB b t0 t1 := \f g. g b (t0 f g) (t1 f g)
+
+define recBT f g t := t f g
+
+define showBTree t :=
+    \leaf branch.
+        recBT (\a. leaf a) (\b t0 t1. branch b t0 t1) t

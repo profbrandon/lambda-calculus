@@ -68,7 +68,7 @@ main = do
         
         ["load", filename] -> do
           contents <- readFile filename
-          case parse statements contents of
+          case parse (statements b (map (\(x,_,_) -> x) env)) contents of
             Nothing       -> do
               putStrLn $ "Failed to parse file '" ++ filename ++ "'"
               loop (b, env)

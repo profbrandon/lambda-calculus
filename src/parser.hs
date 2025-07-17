@@ -146,8 +146,8 @@ statement b ctx = typed <|> untyped <|> eval <|> typeOf <|> define
           return $ Define name args e
 
 
-statements :: Parser [Statement]
-statements = Parser $ 
+statements :: Bool -> [String] -> Parser [Statement]
+statements b ctx = Parser $ 
   \s ->
     let state s = do {
         (b, ctx) <- get;
@@ -163,5 +163,5 @@ statements = Parser $
           Nothing -> return ([], s)
     } 
 
-    in Just $ swap $ fst $ run (state s) (False, [])
+    in Just $ swap $ fst $ run (state s) (b, ctx)
           

@@ -1,0 +1,7 @@
+
+define typeVar n       := leafB n
+define arrowType t0 t1 := branchB unit t0 t1
+
+define showType t :=
+    \T -> { }.
+        recBT (\n. T n) (\_ t0 t1. { t0 } -> t1) t
