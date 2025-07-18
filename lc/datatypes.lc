@@ -227,12 +227,15 @@ define last    l := recL id (\a f. compose f (const a)) l unit
 define init    l := recL (\z h. empty) (\a f z h. h z (f a cons)) l unit false
 
 define map    f   := recL empty (\a bs. cons (f a) bs)
+define filter p   := recL empty (\a bs. if (p a) (cons a bs) bs)
 define concat u v := recL v cons u
 define join   ls  := recL empty concat ls
 
 define ++ := concat
 
 define prepend x l := concat l (singleton x)
+
+define generateUntil p f s := (\l g. if (p s) l (g (cons s l) g)) empty (\l g. if (p s) l (g (cons s l) g))
 
 define listNatAsc n := recN (singleton 0) (\xs. cons 0 (map succ xs)) n
 define listNatDsc n := recN (singleton 0) (\xs. cons (succ (head xs)) xs) n
@@ -306,7 +309,6 @@ define mapV f v :=
         (\h g s. h (\k x. g (k (f x))) s)
         (dim v)
     id
-
 
 define showVector v :=
     \< , > vector. 

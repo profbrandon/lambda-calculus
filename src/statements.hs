@@ -15,6 +15,7 @@ import Lambda (Term(..), showTerm)
 data Statement =
     Define String [String] Term
   | Eval   Term
+  | Step   (Maybe Int) Term
   deriving Eq
 
 
@@ -33,6 +34,7 @@ showStatement ctx (Define s vs e) = "define " ++ s ++ showVars vs ++ " := " ++ s
         showVars (s:vs)           = " " ++ s ++ showVars vs
         ctx'                      = reverse vs ++ s : (map fst ctx)
 showStatement ctx (Eval   e)      = "eval " ++ showTerm (map fst ctx) e
+showStatement ctx (Step mi e)     = "step " ++ s ++ " " ++ showTerm (map fst ctx) e where s = case mi of Just i -> show i; Nothing -> "?"
 
 showStatements :: [(String, Term)] -> [Statement] -> String
 showStatements ctx []     = ""

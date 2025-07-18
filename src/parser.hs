@@ -11,7 +11,7 @@ where
 import Control.Monad
 import Control.Applicative
 import Prelude hiding (repeat)
-import Data.Char (isLower, isAlphaNum)
+import Data.Char (isAlphaNum, isDigit)
 import Data.List (elemIndex)
 import Data.Tuple (swap)
 
@@ -99,6 +99,14 @@ whitespace = repeat $ do {lineComment; return '\n'} <|> (sat $ \c -> c `elem` " 
 identifier :: Parser String
 identifier = repeat1 (sat $ \c -> not $ c `elem` "\\.:() \n\t\r")
 
+integer :: Parser Int
+integer = do
+  s <- repeat1 (sat isDigit)
+  return (read s :: Int)
+
+stepCount :: Parser (Maybe Int)
+stepCount = (Just <$> integer) <|> (char '?' >> (return Nothing))
+
 token :: Parser a -> Parser a
 token p = do {v <- p; whitespace; return v}
 
@@ -123,9 +131,10 @@ term ctx = do
 
 
 statement :: [String] -> Parser Statement
-statement ctx = eval <|> define
+statement ctx = eval <|> step <|> define
       where
         eval    = Eval <$> ((token $ string "eval") >> term ctx)
+        step    = Step <$> ((token $ string "step") >> token stepCount) <*> term ctx
         define  = do
           token $ string "define"
           name <- token identifier

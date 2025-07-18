@@ -2,6 +2,7 @@
 module Eval 
   (
     eval
+  , eval1
   , evalCtx
   , shift
   )
@@ -13,18 +14,19 @@ import Parser
 
 
 
-evalCtx :: [(String, Term)] -> Term -> Term
-evalCtx ctx e = eval $ help ctx e
+evalCtx :: (Term -> Term) -> [(String, Term)] -> Term -> Term
+evalCtx evaluator ctx e = evaluator $ help ctx e
   where help []           e = e
         help ((s,e'):ctx) e = 
           let e'' = shift (-1) 1 e'
           in help ctx $ App (Lambda [s] e) e''
 
 eval :: Term -> Term
-eval e = if e' == e then smashLambda e' else eval e' where e' = eval0 e
+eval e = if e' == e then smashLambda e' else eval e' where e' = eval1 e
 
-eval0 :: Term -> Term
-eval0 (App    e1 e2)   = 
+eval1 :: Term -> Term
+eval1 (App    e1 e2)   = 
+  let e1' = eval1 e1 in 
   case e1' of
     Lambda [v]    e -> shift (-1) 0 $ sub 0 (shift 1 0 e2) e
 
@@ -34,15 +36,16 @@ eval0 (App    e1 e2)   =
                     -- the variable v is also (length vs) so this is the value being 
                     -- substituted in e2' for e. All values above (length vs) need to be
                     -- shifted by (-1) since the outer lambda is being destroyed.
-                    -> Lambda vs $ eval0 $ shift (-1) n $ sub n (shift (n + 1) 0 e2) e 
+                    -> Lambda vs $ shift (-1) n $ sub n (shift (n + 1) 0 e2) e 
                         where n = length vs
 
-    _                 -> if e1 == e1' then App e1' (eval0 e2) else App e1' e2
-  where e1' = eval e1
-eval0 (Lambda [v] (App e@(Var _) (Var 0))) = shift (-1) 0 e                    -- Eta reduction
-eval0 (Lambda vs  (App e@(Var _) (Var 0))) = Lambda (init vs) (shift (-1) 0 e) -- Eta reduction
-eval0 (Lambda vs     e)               = Lambda vs $ eval0 e
-eval0 e                               = e
+    _               | e1 == e1' -> App e1' (eval1 e2)
+                    | otherwise -> App e1' e2
+eval1 e@(Lambda _   (App (Var 0) (Var 0))) = e
+eval1 (Lambda [v] (App e@(Var _) (Var 0))) = shift (-1) 0 e                    -- Eta reduction
+eval1 (Lambda vs  (App e@(Var _) (Var 0))) = Lambda (init vs) (shift (-1) 0 e) -- Eta reduction
+eval1 (Lambda vs     e)               = Lambda vs $ eval1 e
+eval1 e                               = e
 
 sub :: Int -> Term -> Term -> Term
 sub i e (Var    j)

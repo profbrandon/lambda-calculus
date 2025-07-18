@@ -100,4 +100,5 @@ main = do
                \\n \
                \Statements\n \
                \\tdefine <identifier> := <term>\n \
-               \\teval   <term>\n"
+               \\teval   <term>\n \
+               \\tstep   <count>|? <term>\n"
